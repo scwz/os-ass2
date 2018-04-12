@@ -30,7 +30,7 @@ sys_open(userptr_t user_filename, int flags, int *retval)
         filename = kmalloc(sizeof(char *) * PATH_MAX);
         result = copyinstr(user_filename, filename, PATH_MAX, &got);
         if (result) {
-                return ENFILE;
+                return EFAULT;
         }
 
         result = open(filename, flags, retval);
