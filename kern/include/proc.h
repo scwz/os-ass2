@@ -41,6 +41,7 @@
 struct addrspace;
 struct thread;
 struct vnode;
+struct open_file;
 
 /*
  * Process structure.
@@ -71,6 +72,7 @@ struct proc {
 	struct vnode *p_cwd;		/* current working directory */
 
 	/* add more material here as needed */
+        struct open_file **fd_table;    /* file descriptor table */
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */

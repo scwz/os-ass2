@@ -21,36 +21,48 @@
  */
 
 int 
-open(char *filename, int flags, int *retval) 
+sys_open(userptr_t user_filename, int flags, int *retval) 
 {
-        (void) filename;
-        (void) flags;
-        (void) retval;
+        int result;
+        char *filename;
+        size_t got;
+
+        filename = kmalloc(sizeof(char *) * PATH_MAX);
+        result = copyinstr(user_filename, filename, PATH_MAX, &got);
+        if (result) {
+                return ENFILE;
+        }
+
+        result = open(filename, flags, retval);
+        if (result) {
+                return result;
+        }
+
         return 0;
 }
 
 int
-read(int fd, void *buf, size_t buflen, ssize_t *retval) 
+sys_read(int fd, userptr_t user_buf, size_t buflen, ssize_t *retval) 
 {
         (void) fd;
-        (void) buf;
+        (void) user_buf;
         (void) buflen;
         (void) retval;
         return 0;
 }
 
 int
-write(int fd, const void *buf, size_t nbytes, ssize_t *retval) 
+sys_write(int fd, const_userptr_t user_buf, size_t nbytes, ssize_t *retval) 
 {
         (void) fd;
-        (void) buf;
+        (void) user_buf;
         (void) nbytes;
         (void) retval;
         return 0;
 }
 
 int
-lseek(int fd, off_t pos, int whence, off_t *retval) 
+sys_lseek(int fd, off_t pos, int whence, off_t *retval) 
 {
         (void) fd;
         (void) pos;
@@ -60,22 +72,17 @@ lseek(int fd, off_t pos, int whence, off_t *retval)
 }
 
 int 
-close(int fd) 
+sys_close(int fd) 
 {
         (void) fd;
         return 0;
 }
 
 int 
-dup2(int oldfd, int newfd) 
+sys_dup2(int oldfd, int newfd) 
 {
         (void) oldfd;
         (void) newfd;
         return 0;
 }
- 
-int
-open_std_fd(void) {
-//        char c1[] = "con:", c2[] = "con:";
-        return 0;
-}
+

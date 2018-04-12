@@ -48,6 +48,7 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <limits.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -72,6 +73,17 @@ proc_create(const char *name)
 		kfree(proc);
 		return NULL;
 	}
+
+        proc->fd_table = kmalloc(sizeof(struct open_file *) * OPEN_MAX);
+        if (proc->fd_table == NULL) {
+                kfree(proc->p_name);
+                kfree(proc);
+                return NULL;
+        }
+
+        for (int i = 0; i < OPEN_MAX; i++) {
+                proc->fd_table[i] = NULL;
+        }
 
 	proc->p_numthreads = 0;
 	spinlock_init(&proc->p_lock);
