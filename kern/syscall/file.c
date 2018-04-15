@@ -23,9 +23,56 @@
 int 
 open(char *filename, int flags, int *retval) 
 {
-        (void) filename;
-        (void) flags;
-        (void) retval;
+        int i;
+        int result;
+        int fd = -1, entry_no = -1;
+        struct open_file *of;
+
+        of = kmalloc(sizeof(struct open_file *));
+        if (of == NULL) {
+                return ENFILE;
+        } 
+
+        /* find empty block in open file table */
+        for (i = 0; i < OPEN_MAX; i++) {
+                kprintf("OF TABLE %d\n", i);
+                if (oft.table[i] == NULL) {
+                        entry_no = i;
+                        break;
+                }
+        }
+
+        if (entry_no == -1) {
+                return ENFILE;
+        }
+
+        /* find empty block in file descriptor table */
+        for (i = 0; i < OPEN_MAX; i++) {
+                kprintf("FD_TABLE %d\n", i);
+                if (curproc->fd_table[i] == NULL) {
+                        fd = i;
+                        break;
+                }
+        }
+
+        if (fd == -1) {
+                return EMFILE;
+        }
+
+        of->index = entry_no;
+        of->offset = 0;
+        of->flags = flags;
+        of->ref_count = 1;
+        of->of_lock = lock_create("of_lock");
+
+        result = vfs_open(filename, flags, 0, &of->vn);
+        if (result) {
+                return result;
+        }
+
+        oft.table[entry_no] = curproc->fd_table[fd] = of;
+        *retval = fd;
+
         return 0;
 }
 
@@ -42,10 +89,28 @@ read(int fd, void *buf, size_t buflen, ssize_t *retval)
 int
 write(int fd, const void *buf, size_t nbytes, ssize_t *retval) 
 {
-        (void) fd;
-        (void) buf;
-        (void) nbytes;
-        (void) retval;
+        int result;
+        struct iovec iov;
+        struct uio myuio;
+        struct open_file *curfile; 
+
+        if (fd < 0 || fd >= OPEN_MAX || (curfile = curproc->fd_table[fd]) == NULL) {
+                return EBADF;
+        }
+
+        lock_acquire(curfile->of_lock);
+
+        uio_kinit(&iov, &myuio, (void *)buf, nbytes, curfile->offset, UIO_WRITE);
+        result = VOP_WRITE(curfile->vn, &myuio);
+        if (result) {
+                return result;
+        }
+
+        *retval = myuio.uio_offset - curfile->offset;
+        curfile->offset = myuio.uio_offset;
+
+        lock_release(curfile->of_lock);
+
         return 0;
 }
 
@@ -62,7 +127,26 @@ lseek(int fd, off_t pos, int whence, off_t *retval)
 int 
 close(int fd) 
 {
-        (void) fd;
+        int index;
+        struct open_file *curfile;
+
+        if (fd < 0 || fd >= OPEN_MAX || (curfile = curproc->fd_table[fd]) == NULL) {
+                return EBADF;
+        }
+
+        curfile->ref_count--;
+
+        if (curfile->ref_count == 0) {
+                index = curfile->index;
+
+                vfs_close(curfile->vn);
+                lock_destroy(curfile->of_lock);
+                kfree(curfile);
+
+                oft.table[index] = NULL;
+                curproc->fd_table[fd] = NULL;
+        }
+
         return 0;
 }
 
@@ -76,6 +160,13 @@ dup2(int oldfd, int newfd)
  
 int
 open_std_fd(void) {
-//        char c1[] = "con:", c2[] = "con:";
+        int dummy;
+        char c1[] = "con:", c2[] = "con:", c3[] = "con:";
+
+        // open stdin, stdout, and stderr first so that they
+        // get fds 0, 1, 2 respectively
+        open(c1, O_RDONLY, &dummy);
+        open(c2, O_WRONLY, &dummy);
+        open(c3, O_WRONLY, &dummy);
         return 0;
 }

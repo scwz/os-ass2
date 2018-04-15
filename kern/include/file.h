@@ -16,6 +16,7 @@
  */
 
 struct open_file {
+        int index;
         struct vnode *vn;
         struct lock *of_lock;
         off_t offset;
@@ -25,8 +26,10 @@ struct open_file {
 
 struct of_table {
         struct lock *oft_lock;
-        struct open_file of_table[OPEN_MAX];
+        struct open_file *table[OPEN_MAX];
 };
+
+struct of_table oft;
 
 int open(char *filename, int flags, int *retval);
 int read(int fd, void *buf, size_t buflen, ssize_t *retval);
