@@ -134,6 +134,7 @@ close(int fd)
                 return EBADF;
         }
 
+        curproc->fd_table[fd] = NULL;
         curfile->ref_count--;
 
         if (curfile->ref_count == 0) {
@@ -144,7 +145,6 @@ close(int fd)
                 kfree(curfile);
 
                 oft.table[index] = NULL;
-                curproc->fd_table[fd] = NULL;
         }
 
         return 0;
