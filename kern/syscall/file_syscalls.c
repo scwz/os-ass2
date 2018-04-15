@@ -50,10 +50,26 @@ sys_open(userptr_t user_filename, int flags, int *retval)
 int
 sys_read(int fd, userptr_t user_buf, size_t buflen, ssize_t *retval) 
 {
-        (void) fd;
-        (void) user_buf;
-        (void) buflen;
-        (void) retval;
+        int result;
+        void *buf;
+
+        buf = kmalloc(sizeof(void *) * buflen);
+        if (buf == NULL) {
+                return ENOSPC;
+        }
+
+        result = read(fd, buf, buflen, retval);
+        if (result) {
+                return result;
+        }
+
+        result = copyout(buf, user_buf, buflen);
+        if (result) {
+                return result;
+        }
+
+        kfree(buf);
+
         return 0;
 }
 
@@ -86,11 +102,7 @@ sys_write(int fd, const_userptr_t user_buf, size_t nbytes, ssize_t *retval)
 int
 sys_lseek(int fd, off_t pos, int whence, off_t *retval) 
 {
-        (void) fd;
-        (void) pos;
-        (void) whence;
-        (void) retval;
-        return 0;
+        return lseek(fd, pos, whence, retval);
 }
 
 int 
@@ -102,8 +114,6 @@ sys_close(int fd)
 int 
 sys_dup2(int oldfd, int newfd) 
 {
-        (void) oldfd;
-        (void) newfd;
-        return 0;
+        return dup2(oldfd, newfd);
 }
 
