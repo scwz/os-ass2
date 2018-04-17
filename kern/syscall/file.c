@@ -33,6 +33,7 @@ open(char *filename, int flags, int *retval)
                 return ENFILE;
         } 
 
+        lock_acquire(oft.oft_lock);
         /* find empty block in open file table */
         for (i = 0; i < OPEN_MAX; i++) {
                 if (oft.table[i] == NULL) {
@@ -42,6 +43,7 @@ open(char *filename, int flags, int *retval)
         }
 
         if (entry_no == -1) {
+                lock_release(oft.oft_lock);
                 return ENFILE;
         }
 
@@ -54,6 +56,7 @@ open(char *filename, int flags, int *retval)
         }
 
         if (fd == -1) {
+                lock_release(oft.oft_lock);
                 return EMFILE;
         }
 
@@ -65,11 +68,14 @@ open(char *filename, int flags, int *retval)
 
         result = vfs_open(filename, flags, 0, &of->vn);
         if (result) {
+                lock_release(oft.oft_lock);
                 return result;
         }
 
         oft.table[entry_no] = curproc->fd_table[fd] = of;
         *retval = fd;
+
+        lock_release(oft.oft_lock);
 
         return 0;
 }
@@ -98,6 +104,7 @@ read(int fd, void *buf, size_t buflen, ssize_t *retval)
         curfile->offset = myuio.uio_offset;
 
         lock_release(curfile->of_lock);
+
         return 0;
 }
 
@@ -203,8 +210,9 @@ dup2(int oldfd, int newfd)
         return 0;
 }
  
-int
-open_std_fd(void) {
+void
+open_std_fd(void) 
+{
         int dummy;
         char c0[] = "con:", c1[] = "con:", c2[] = "con:";
 
@@ -213,5 +221,14 @@ open_std_fd(void) {
         open(c0, O_RDONLY, &dummy);
         open(c1, O_WRONLY, &dummy);
         open(c2, O_WRONLY, &dummy);
-        return 0;
+}
+
+void
+oft_bootstrap(void) 
+{
+        oft.oft_lock = lock_create("oft_lock");
+
+        for (int i = 0; i < OPEN_MAX; i++) {
+                oft.table[i] = NULL;
+        }
 }

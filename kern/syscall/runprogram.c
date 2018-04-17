@@ -61,10 +61,7 @@ runprogram(char *progname)
 	int result;
 
         /* open standard file descriptors */
-        result = open_std_fd();
-        if (result) {
-                return result;
-        }
+        open_std_fd();
 
 	/* Open the file. */
 	result = vfs_open(progname, O_RDONLY, 0, &v);

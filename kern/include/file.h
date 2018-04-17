@@ -37,6 +37,7 @@ int write(int fd, const void *buf, size_t nbytes, ssize_t *retval);
 int lseek(int fd, off_t pos, int whence, off_t *retval);
 int close(int fd);
 int dup2(int oldfd, int newfd);
-int open_std_fd(void);
+void open_std_fd(void);
+void oft_bootstrap(void);
 
 #endif /* _FILE_H_ */

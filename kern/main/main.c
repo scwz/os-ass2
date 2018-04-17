@@ -46,6 +46,7 @@
 #include <mainbus.h>
 #include <vfs.h>
 #include <device.h>
+#include <file.h>
 #include <syscall.h>
 #include <test.h>
 #include <version.h>
@@ -127,6 +128,7 @@ boot(void)
 	/* Late phase of initialization. */
 	vm_bootstrap();
 	kprintf_bootstrap();
+        oft_bootstrap();
 	thread_start_cpus();
 
 	/* Default bootfs - but ignore failure, in case emu0 doesn't exist */
