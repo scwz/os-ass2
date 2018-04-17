@@ -34,6 +34,7 @@ open(char *filename, int flags, int *retval)
         } 
 
         lock_acquire(oft.oft_lock);
+
         /* find empty block in open file table */
         for (i = 0; i < OPEN_MAX; i++) {
                 if (oft.table[i] == NULL) {
@@ -190,6 +191,8 @@ close(int fd)
         curfile->ref_count--;
 
         if (curfile->ref_count == 0) {
+                lock_acquire(oft.oft_lock);
+
                 index = curfile->index;
 
                 vfs_close(curfile->vn);
@@ -197,6 +200,8 @@ close(int fd)
                 kfree(curfile);
 
                 oft.table[index] = NULL;
+
+                lock_release(oft.oft_lock);
         }
 
         return 0;
@@ -227,6 +232,7 @@ void
 oft_bootstrap(void) 
 {
         oft.oft_lock = lock_create("oft_lock");
+        oft.table = kmalloc(sizeof(struct open_table *) * OPEN_MAX);
 
         for (int i = 0; i < OPEN_MAX; i++) {
                 oft.table[i] = NULL;

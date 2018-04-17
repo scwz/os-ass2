@@ -26,7 +26,7 @@ struct open_file {
 
 struct of_table {
         struct lock *oft_lock;
-        struct open_file *table[OPEN_MAX];
+        struct open_file **table;
 };
 
 struct of_table oft;
