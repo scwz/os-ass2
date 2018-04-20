@@ -30,7 +30,7 @@ open(char *filename, int flags, int *retval)
 
         of = kmalloc(sizeof(struct open_file *));
         if (of == NULL) {
-                return ENFILE;
+                return ENOMEM;
         } 
 
         lock_acquire(oft.oft_lock);

@@ -29,7 +29,7 @@ sys_open(userptr_t user_filename, int flags, int *retval)
 
         filename = kmalloc(sizeof(char *) * PATH_MAX);
         if (filename == NULL) {
-                return ENOSPC;
+                return ENOMEM;
         }
 
         result = copyinstr(user_filename, filename, PATH_MAX, &got);
@@ -55,7 +55,7 @@ sys_read(int fd, userptr_t user_buf, size_t buflen, ssize_t *retval)
 
         buf = kmalloc(sizeof(void *) * buflen);
         if (buf == NULL) {
-                return ENOSPC;
+                return ENOMEM;
         }
 
         result = read(fd, buf, buflen, retval);
@@ -81,7 +81,7 @@ sys_write(int fd, const_userptr_t user_buf, size_t nbytes, ssize_t *retval)
 
         buf = kmalloc(sizeof(void *) * nbytes);
         if (buf == NULL) {
-                return ENOSPC;
+                return ENOMEM;
         }
 
         result = copyin(user_buf, buf, nbytes);
