@@ -31,7 +31,7 @@ struct of_table {
 
 struct of_table oft;
 
-int open(char *filename, int flags, int *retval);
+int open(char *filename, int flags, mode_t mode, int *retval);
 int read(int fd, void *buf, size_t buflen, ssize_t *retval);
 int write(int fd, const void *buf, size_t nbytes, ssize_t *retval);
 int lseek(int fd, off_t pos, int whence, off_t *retval);

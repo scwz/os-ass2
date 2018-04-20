@@ -21,7 +21,7 @@
  */
 
 int 
-sys_open(userptr_t user_filename, int flags, int *retval) 
+sys_open(userptr_t user_filename, int flags, mode_t mode, int *retval) 
 {
         int result;
         char *filename;
@@ -37,7 +37,7 @@ sys_open(userptr_t user_filename, int flags, int *retval)
                 return result;
         }
 
-        result = open(filename, flags, retval);
+        result = open(filename, flags, mode, retval);
         if (result) {
                 return result;
         }

@@ -21,7 +21,7 @@
  */
 
 int 
-open(char *filename, int flags, int *retval) 
+open(char *filename, int flags, mode_t mode, int *retval) 
 {
         int i;
         int result;
@@ -67,7 +67,7 @@ open(char *filename, int flags, int *retval)
         of->ref_count = 1;
         of->of_lock = lock_create("of_lock");
 
-        result = vfs_open(filename, flags, 0, &of->vn);
+        result = vfs_open(filename, flags, mode, &of->vn);
         if (result) {
                 lock_release(oft.oft_lock);
                 return result;
@@ -223,9 +223,9 @@ open_std_fd(void)
 
         // open stdin, stdout, and stderr first so that they
         // get fds 0, 1, 2 respectively
-        open(c0, O_RDONLY, &dummy);
-        open(c1, O_WRONLY, &dummy);
-        open(c2, O_WRONLY, &dummy);
+        open(c0, O_RDONLY, 0, &dummy);
+        open(c1, O_WRONLY, 0, &dummy);
+        open(c2, O_WRONLY, 0, &dummy);
 }
 
 void
