@@ -210,8 +210,30 @@ close(int fd)
 int 
 dup2(int oldfd, int newfd) 
 {
-        (void) oldfd;
-        (void) newfd;
+        struct open_file *curfile;
+
+        if (oldfd < 0 || oldfd >= OPEN_MAX || newfd < 0 || newfd >= OPEN_MAX) {
+                return EBADF;
+        }
+
+        // no effect
+        if (oldfd == newfd) {
+                return 0;
+        }
+
+        curfile = curproc->fd_table[oldfd];
+
+        lock_acquire(curfile->of_lock);
+
+        if (curfile == NULL || curproc->fd_table[newfd] != NULL) {
+                return EBADF;
+        }
+
+        curfile->ref_count++;
+        curproc->fd_table[newfd] = curfile;
+
+        lock_release(curfile->of_lock);
+
         return 0;
 }
  
