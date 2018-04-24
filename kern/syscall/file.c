@@ -28,7 +28,7 @@ open(char *filename, int flags, mode_t mode, int *retval)
         int fd = -1, entry_no = -1;
         struct open_file *of;
 
-        of = kmalloc(sizeof(struct open_file *));
+        of = kmalloc(sizeof(struct open_file));
         if (of == NULL) {
                 return ENOMEM;
         } 
@@ -254,7 +254,7 @@ void
 oft_bootstrap(void) 
 {
         oft.oft_lock = lock_create("oft_lock");
-        oft.table = kmalloc(sizeof(struct open_table *) * OPEN_MAX);
+        oft.table = kmalloc(sizeof(struct open_table) * OPEN_MAX);
 
         for (int i = 0; i < OPEN_MAX; i++) {
                 oft.table[i] = NULL;
