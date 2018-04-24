@@ -98,6 +98,7 @@ read(int fd, void *buf, size_t buflen, ssize_t *retval)
         uio_kinit(&iov, &myuio, buf, buflen, curfile->offset, UIO_READ);
         result = VOP_READ(curfile->vn, &myuio);
         if (result) {
+					 lock_release(curfile->of_lock);
                 return result;
         }
 
@@ -126,6 +127,7 @@ write(int fd, const void *buf, size_t nbytes, ssize_t *retval)
         uio_kinit(&iov, &myuio, (void *)buf, nbytes, curfile->offset, UIO_WRITE);
         result = VOP_WRITE(curfile->vn, &myuio);
         if (result) {
+				    lock_release(curfile->of_lock);
                 return result;
         }
 
