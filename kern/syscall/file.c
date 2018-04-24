@@ -98,7 +98,7 @@ read(int fd, void *buf, size_t buflen, ssize_t *retval)
         uio_kinit(&iov, &myuio, buf, buflen, curfile->offset, UIO_READ);
         result = VOP_READ(curfile->vn, &myuio);
         if (result) {
-					 lock_release(curfile->of_lock);
+                lock_release(curfile->of_lock);
                 return result;
         }
 
@@ -225,11 +225,11 @@ dup2(int oldfd, int newfd)
 
         curfile = curproc->fd_table[oldfd];
 
-        lock_acquire(curfile->of_lock);
-
         if (curfile == NULL || curproc->fd_table[newfd] != NULL) {
                 return EBADF;
         }
+
+        lock_acquire(curfile->of_lock);
 
         curfile->ref_count++;
         curproc->fd_table[newfd] = curfile;
@@ -256,7 +256,7 @@ void
 oft_bootstrap(void) 
 {
         oft.oft_lock = lock_create("oft_lock");
-        oft.table = kmalloc(sizeof(struct open_table) * OPEN_MAX);
+        oft.table = kmalloc(sizeof(struct open_table *) * OPEN_MAX);
 
         for (int i = 0; i < OPEN_MAX; i++) {
                 oft.table[i] = NULL;

@@ -27,7 +27,7 @@ sys_open(userptr_t user_filename, int flags, mode_t mode, int *retval)
         char *filename;
         size_t got;
 
-        filename = kmalloc(sizeof(char *) * PATH_MAX);
+        filename = kmalloc(sizeof(char) * PATH_MAX);
         if (filename == NULL) {
                 return ENOMEM;
         }
@@ -53,7 +53,7 @@ sys_read(int fd, userptr_t user_buf, size_t buflen, ssize_t *retval)
         int result;
         void *buf;
 
-        buf = kmalloc(sizeof(void *) * buflen);
+        buf = kmalloc(sizeof(void) * buflen);
         if (buf == NULL) {
                 return ENOMEM;
         }
@@ -79,7 +79,7 @@ sys_write(int fd, const_userptr_t user_buf, size_t nbytes, ssize_t *retval)
         int result;
         void *buf;
 
-        buf = kmalloc(sizeof(void *) * nbytes);
+        buf = kmalloc(sizeof(void) * nbytes);
         if (buf == NULL) {
                 return ENOMEM;
         }
