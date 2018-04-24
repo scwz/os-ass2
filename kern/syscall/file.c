@@ -25,28 +25,13 @@ open(char *filename, int flags, mode_t mode, int *retval)
 {
         int i;
         int result;
-        int fd = -1, entry_no = -1;
+        int fd = -1;
         struct open_file *of;
 
         of = kmalloc(sizeof(struct open_file));
         if (of == NULL) {
-                return ENOMEM;
-        } 
-
-        lock_acquire(oft.oft_lock);
-
-        /* find empty block in open file table */
-        for (i = 0; i < OPEN_MAX; i++) {
-                if (oft.table[i] == NULL) {
-                        entry_no = i;
-                        break;
-                }
-        }
-
-        if (entry_no == -1) {
-                lock_release(oft.oft_lock);
                 return ENFILE;
-        }
+        } 
 
         /* find empty block in file descriptor table */
         for (i = 0; i < OPEN_MAX; i++) {
@@ -57,11 +42,9 @@ open(char *filename, int flags, mode_t mode, int *retval)
         }
 
         if (fd == -1) {
-                lock_release(oft.oft_lock);
                 return EMFILE;
         }
 
-        of->index = entry_no;
         of->offset = 0;
         of->flags = flags;
         of->ref_count = 1;
@@ -69,14 +52,11 @@ open(char *filename, int flags, mode_t mode, int *retval)
 
         result = vfs_open(filename, flags, mode, &of->vn);
         if (result) {
-                lock_release(oft.oft_lock);
                 return result;
         }
 
-        oft.table[entry_no] = curproc->fd_table[fd] = of;
+        curproc->fd_table[fd] = of;
         *retval = fd;
-
-        lock_release(oft.oft_lock);
 
         return 0;
 }
@@ -127,7 +107,7 @@ write(int fd, const void *buf, size_t nbytes, ssize_t *retval)
         uio_kinit(&iov, &myuio, (void *)buf, nbytes, curfile->offset, UIO_WRITE);
         result = VOP_WRITE(curfile->vn, &myuio);
         if (result) {
-				    lock_release(curfile->of_lock);
+                lock_release(curfile->of_lock);
                 return result;
         }
 
@@ -182,28 +162,25 @@ lseek(int fd, off_t pos, int whence, off_t *retval)
 int 
 close(int fd) 
 {
-        int index;
         struct open_file *curfile;
 
         if (fd < 0 || fd >= OPEN_MAX || (curfile = curproc->fd_table[fd]) == NULL) {
                 return EBADF;
         }
 
+        lock_acquire(curfile->of_lock);
+
         curproc->fd_table[fd] = NULL;
         curfile->ref_count--;
 
         if (curfile->ref_count == 0) {
-                lock_acquire(oft.oft_lock);
-
-                index = curfile->index;
-
                 vfs_close(curfile->vn);
+                lock_release(curfile->of_lock);
                 lock_destroy(curfile->of_lock);
                 kfree(curfile);
-
-                oft.table[index] = NULL;
-
-                lock_release(oft.oft_lock);
+        }
+        else {
+                lock_release(curfile->of_lock);
         }
 
         return 0;
@@ -250,15 +227,4 @@ open_std_fd(void)
         open(c0, O_RDONLY, 0, &dummy);
         open(c1, O_WRONLY, 0, &dummy);
         open(c2, O_WRONLY, 0, &dummy);
-}
-
-void
-oft_bootstrap(void) 
-{
-        oft.oft_lock = lock_create("oft_lock");
-        oft.table = kmalloc(sizeof(struct open_table *) * OPEN_MAX);
-
-        for (int i = 0; i < OPEN_MAX; i++) {
-                oft.table[i] = NULL;
-        }
 }
