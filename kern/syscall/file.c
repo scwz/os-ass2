@@ -144,10 +144,12 @@ lseek(int fd, off_t pos, int whence, off_t *retval)
                         new_pos = file_stats.st_size + pos;
                         break;
                 default:
+                        lock_release(curfile->of_lock);
                         return EINVAL;
         }
 
         if (new_pos < 0) {
+                lock_release(curfile->of_lock);
                 return EINVAL;
         }
 
@@ -202,8 +204,12 @@ dup2(int oldfd, int newfd)
 
         curfile = curproc->fd_table[oldfd];
 
-        if (curfile == NULL || curproc->fd_table[newfd] != NULL) {
+        if (curfile == NULL) {
                 return EBADF;
+        }
+
+        if (curproc->fd_table[newfd] != NULL) {
+                close(newfd);
         }
 
         lock_acquire(curfile->of_lock);
