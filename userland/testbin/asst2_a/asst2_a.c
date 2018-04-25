@@ -246,7 +246,7 @@ main(int argc, char * argv[])
               exit(1);
       }
       r = lseek(fd, -1, SEEK_END);
-      if (r != 2) {
+      if (r != 3) {
               printf("ERROR lseek SEEK_END: %s\n", strerror(errno));
               exit(1);
 		}

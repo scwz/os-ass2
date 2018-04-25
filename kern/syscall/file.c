@@ -73,6 +73,10 @@ read(int fd, void *buf, size_t buflen, ssize_t *retval)
                 return EBADF;
         }
 
+        if ((curfile->flags & O_ACCMODE) == O_WRONLY) {
+                return EBADF;
+        }
+
         lock_acquire(curfile->of_lock);
 
         uio_kinit(&iov, &myuio, buf, buflen, curfile->offset, UIO_READ);
@@ -102,6 +106,10 @@ write(int fd, const void *buf, size_t nbytes, ssize_t *retval)
                 return EBADF;
         }
 
+        if ((curfile->flags & O_ACCMODE) == O_RDONLY) {
+                return EBADF;
+        }
+
         lock_acquire(curfile->of_lock);
 
         uio_kinit(&iov, &myuio, (void *)buf, nbytes, curfile->offset, UIO_WRITE);
@@ -128,6 +136,10 @@ lseek(int fd, off_t pos, int whence, off_t *retval)
 
         if (fd < 0 || fd >= OPEN_MAX || (curfile = curproc->fd_table[fd]) == NULL) {
                 return EBADF;
+        }
+
+        if (!VOP_ISSEEKABLE(curfile->vn)) {
+                return ESPIPE;
         }
 
         lock_acquire(curfile->of_lock);
