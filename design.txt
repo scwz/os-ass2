@@ -1,1 +1,18 @@
-Place your design document here.
+For this assignment, we had to implement a per-process file
+descriptor table with a global open file table to manage currently 
+open files. 
+
+We represent an open file with a struct which contains a pointer to 
+a vnode, a mutex, the current seek offset of the file, the file 
+status flags, and the reference count of the file. The vnode
+represents the file in the file system, the mutex ensures 
+modification of the offset is mutually exclusive, and the reference 
+count indicates how many file descriptors directly reference a file.
+
+The per-process file descriptor table is implemented as an array of 
+pointers to an open file of size OPEN_MAX and is created each time a
+new process is spawned. We use the heap as our open file table. Since
+there is no reason to index into the open file table, and it is 
+assumed there will be enough memory to pass the auto-testing, we 
+decided leaving the open file entries on the heap would be easier 
+to do and leave our code less complicated.
