@@ -8,10 +8,19 @@
 #include <errno.h>
 
 #define MAX_BUF 500
+#define OPEN_MAX 32
+
 char teststr[] = "The quick brown fox jumped over the lazy dog.";
 char buf[MAX_BUF];
 char tester[] = "ABC";
 char newtest[] = "XYZ";
+
+
+/* Func prototypes */
+int test_valid_open(const char *file, int flags);
+int test_valid_read(int fd, char buf[], int n);
+int test_valid_write(int fd, char string[], int testVal);
+void test_valid_close(int fd);
 
 int
 main(int argc, char * argv[])
@@ -30,8 +39,6 @@ main(int argc, char * argv[])
         if (fd < 0) {
                 printf("ERROR opening file: %s\n", strerror(errno));
                 exit(1);
-        } else {
-		  	   //printf("SUCCESSFULLY didn't open: %s\n", strerror(errno));
         }
 
         
@@ -45,9 +52,7 @@ main(int argc, char * argv[])
         if (fd != -1) {
                 printf("ERROR opening file: %s\n", strerror(errno));
                 exit(1);
-        } else {
-		  	   //printf("SUCCESSFULLY didn't open: %s\n", strerror(errno));
-		}
+        }
 
         printf("**********\n* opening non-existent file without perms\n");
         fd = open("blah", O_RDWR);
@@ -55,9 +60,7 @@ main(int argc, char * argv[])
         if (fd != -1) {
                 printf("ERROR opening file: %s\n", strerror(errno));
                 exit(1);
-        } else {
-		  	   //printf("SUCCESSFULLY didn't open: %s\n", strerror(errno));
-		}
+        }
 
         printf("**********\n* opening same file twice\n");
         fd = open("tester.file", O_RDWR);
@@ -67,23 +70,32 @@ main(int argc, char * argv[])
         if (fd < 0 || fd2 < 0) {
                 printf("ERROR opening file: %s\n", strerror(errno));
                 exit(1);
-        } else {
-		  	   //printf("SUCCESSFULLY didn't open: %s\n", strerror(errno));
-		}
+        }
 
         printf("* close fd and fd2\n");
 	     close(fd);	
 	     close(fd2);	
 		  
-        printf("**********\n* opening old file normally\n");
-        fd = open("tester.file", O_RDWR);
-        printf("* open() got fd %d\n", fd);
-        if (fd < 0) {
-                printf("ERROR opening file: %s\n", strerror(errno));
-                exit(1);
-        } else {
-		  	   //printf("SUCCESSFULLY didn't open: %s\n", strerror(errno));
-		}
+
+		// NB: I hardcoded OPEN_MAX to 32 cos I couldn't figure out how to #include kern/limits.h here
+	   printf("**********\n* test OPEN_MAX limit\n");
+		int i = 0;
+		int fdtable[32];
+
+		printf("* create OPEN_MAX num of fd's\n");
+		while (i < OPEN_MAX) {
+			fdtable[i] = test_valid_open("openmax.file", O_RDWR | O_CREAT);
+			i++;
+		} 
+
+
+      printf("**********\n* opening old file normally\n");
+      fd = open("tester.file", O_RDWR);
+      printf("* open() got fd %d\n", fd);
+      if (fd < 0) {
+              printf("ERROR opening file: %s\n", strerror(errno));
+              exit(1);
+      }
      
 	   printf("**********\n test return val of read\n");
 		printf("* attempting read of %d bytes\n", 2);
@@ -110,7 +122,7 @@ main(int argc, char * argv[])
 	  close(fd);
 		
 
-	   printf("**********\n test read of invalid fd\n");
+	   printf("**********\n test read of wrong fd\n");
 		printf("* attempting read of %d bytes\n", 2);
 		r = read(fd, &buf[0], 2);
 		printf("read %d bytes\n", r);
@@ -119,7 +131,7 @@ main(int argc, char * argv[])
 			exit(1);
 		}
 
-		printf("**********\n test write to invalid fd\n");
+		printf("**********\n test write to wrong fd\n");
 		printf("* attempting write of %d bytes\n", 2);
 		r = write(fd, teststr, strlen(teststr));
 		printf("wrote %d bytes\n", r);
@@ -224,7 +236,36 @@ main(int argc, char * argv[])
       printf("close fd and fd2\n");
       close(fd);
       close(fd2);
-     
+
+
+		printf("**********\n* testing read on write only\n");
+		fd = test_valid_open("tester.file", O_WRONLY);
+
+		r = read(fd, &buf[0], 1);
+		if (r != -1) {
+			printf("ERROR invalid read on write only file: %d\n", r);
+			exit(1);
+		}
+
+		test_valid_close(fd);
+
+		printf("**********\n* testing write on read only\n");
+		printf("* open test file\n");
+		fd = test_valid_open("wrreadonly.file", O_RDWR | O_CREAT);
+
+		printf("* write to test file\n");
+		test_valid_write(fd, tester, strlen(tester));
+		test_valid_close(fd);
+
+		printf("* reopen test file as read only\n");
+		fd = test_valid_open("wrreadonly.file", O_RDONLY);
+		r = write(fd, newtest, strlen(newtest));
+		if (r != -1) {
+			printf("ERROR invalid write on read only file: %d\n", r);
+			exit(1);
+		}
+		
+		test_valid_close(fd);
 
 		printf("**********\n* testing lseek whence types\n");
 	   printf("* open file normally \"tester.file\"\n");
@@ -246,8 +287,8 @@ main(int argc, char * argv[])
               exit(1);
       }
       r = lseek(fd, -1, SEEK_END);
-      if (r != 3) {
-              printf("ERROR lseek SEEK_END: %s\n", strerror(errno));
+      if (r != 2) {
+              printf("ERROR lseek SEEK_END, r is: %d\n", r);
               exit(1);
 		}
       r = lseek(fd, -30, SEEK_CUR);
@@ -333,34 +374,87 @@ main(int argc, char * argv[])
           printf("ERROR closing file: %s\n", strerror(errno));
           exit(1);
       }
-      printf("* test invalid return val\n");
+      printf("* test closing already closed fd\n");
       r = close(fd);
       if (r == 0) {
           printf("ERROR closing invalid file: %s\n", strerror(errno));
           exit(1);
       }
 
+
+		printf("**********\n* test: open 2 fd's, close one, do work and reopen another, then close both\n");
+		printf("*WARNING: IO BUFFERING may falsify this test\n");
+
+		printf("* create dummy file\n");
+		fd = test_valid_open("close2open.file", O_RDWR | O_CREAT);
+		test_valid_write(fd, tester, strlen(tester));
+		//test_valid_close(fd);
+		//fd = test_valid_open("close2open.file", O_RDWR | O_CREAT);
+		r = test_valid_read(fd, &buf[0], strlen(tester));
+		if (buf[0] != 'A' || buf[1] != 'B' || buf[2] != 'C') {
+			 printf("ERROR writing dummy file: %c%c%c\n", buf[0], buf[1], buf[2]);
+			 exit(1);
+		}
+		test_valid_close(fd);
+
+		printf("* open 2 fd's\n");
+		fd = test_valid_open("close2open.file", O_RDWR);
+		fd2 = test_valid_open("close2open.file", O_RDWR);
+
+		printf("* close second\n");
+		test_valid_close(fd2);
+
+		printf("* write to first\n");
+		test_valid_write(fd, newtest, strlen(newtest));
+
+		printf("* reopen another copy\n");
+		fd2 = test_valid_open("close2open.file", O_RDWR);
+
+		printf("* close both\n");
+		test_valid_close(fd);
+		test_valid_close(fd2);
+
 //TODO
-/*
-      printf("* test: open 2 fd's, close one, do work and reopen another, thenclose both\n");
-      printf("* open new file \"blah.file\"\n");
-	   fd = open("blah.file", O_RDWR | O_CREAT);
-	   printf("* open() got fd %d\n", fd);
-	   if (fd < 0) {
-	    		 printf("ERROR opening file: %s\n", strerror(errno));
-	    		 exit(1);
-	   }
-      printf("* open duplicate file \"blah.file\"\n");
-	   fd = open("blah.file", O_RDWR | O_CREAT);
-	   printf("* open() got fd %d\n", fd);
-	   if (fd < 0) {
-	    		 printf("ERROR opening file: %s\n", strerror(errno));
-	    		 exit(1);
-	   }
-*/
+		printf("**********\n* Test dup2\n");
 
       printf("*********\n* SUCCESS: TESTS COMPLETE\n");
       return 0;
 }
 
+int test_valid_open(const char *file, int flags) {
+	printf("* open file normally \"%s\"\n", file);
+	int fd = open(file, flags);
+	printf("* open() got fd %d\n", fd);
+	if (fd < 0) {
+			 printf("ERROR opening file: %s\n", strerror(errno));
+			 exit(1);
+	}
+	return fd;
+}
 
+int test_valid_read(int fd, char buf[], int n) {
+	printf("* attempting read of %d bytes from fd: %d\n", n, fd);
+	int r = read(fd, &buf[0], n);
+	printf("read %d bytes\n", r);
+	if (r != n) {
+		printf("ERROR: only %d bytes read\n", r);
+		exit(1);
+	}
+	return r;
+}
+
+int test_valid_write(int fd, char string[], int testVal) {
+	printf("* write to fd: %d\n", fd);
+	int r = write(fd, string, strlen(string));
+	printf("wrote %d bytes\n", r);
+	if (r != testVal) {
+		printf("ERROR: %d bytes written\n", r);
+		exit(1);
+	}
+	return r;
+}
+
+void test_valid_close(int fd) {
+	printf("* close fd: %d\n", fd);	
+	close(fd);
+}
