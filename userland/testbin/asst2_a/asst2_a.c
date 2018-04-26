@@ -79,14 +79,28 @@ main(int argc, char * argv[])
 
 		// NB: I hardcoded OPEN_MAX to 32 cos I couldn't figure out how to #include kern/limits.h here
 	   printf("**********\n* test OPEN_MAX limit\n");
-		int i = 0;
-		int fdtable[32];
+		int volatile i = 0; 
+		int fdtable[OPEN_MAX - 3]; //OPEN_MAX - std fd's = 29
 
 		printf("* create OPEN_MAX num of fd's\n");
-		while (i < OPEN_MAX) {
+		while (i < (OPEN_MAX - 3)) {
 			fdtable[i] = test_valid_open("openmax.file", O_RDWR | O_CREAT);
 			i++;
 		} 
+
+		printf("* try and open one more\n");
+		fd = open("openmax.file", O_RDWR | O_CREAT);
+		if (fd != -1) {
+			printf("ERROR, opened more than OPEN_MAX\n");
+			exit(1);
+		}
+
+		printf("* close all fd's\n");
+		i = 0;
+		while (i < OPEN_MAX) {
+			test_valid_close(fdtable[i]);
+			i++;
+		}
 
 
       printf("**********\n* opening old file normally\n");
