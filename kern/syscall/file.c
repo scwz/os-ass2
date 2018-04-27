@@ -246,3 +246,32 @@ open_std_fd(void)
         open(c1, O_WRONLY, 0, &dummy);
         open(c2, O_WRONLY, 0, &dummy);
 }
+
+
+struct open_file **
+fdt_create(void) 
+{
+        struct open_file **fdt;
+
+        fdt = kmalloc(sizeof(struct open_file *) * OPEN_MAX);
+
+        if (fdt == NULL) {
+                return NULL;
+        }
+
+        for (int i = 0; i < OPEN_MAX; i++) {
+                fdt[i] = NULL;
+        }
+
+        return fdt;
+}
+
+void 
+fdt_destroy(struct open_file **fdt) 
+{
+        for (int i = 0; i < OPEN_MAX; i++) {
+                close(i);
+        }
+
+        kfree(fdt);
+}

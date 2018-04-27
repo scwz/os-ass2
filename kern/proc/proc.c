@@ -48,6 +48,7 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <file.h>
 #include <limits.h>
 
 /*
@@ -74,15 +75,11 @@ proc_create(const char *name)
 		return NULL;
 	}
 
-        proc->fd_table = kmalloc(sizeof(struct open_file *) * OPEN_MAX);
+        proc->fd_table = fdt_create();
         if (proc->fd_table == NULL) {
                 kfree(proc->p_name);
                 kfree(proc);
                 return NULL;
-        }
-
-        for (int i = 0; i < OPEN_MAX; i++) {
-                proc->fd_table[i] = NULL;
         }
 
 	proc->p_numthreads = 0;
@@ -180,6 +177,7 @@ proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
+        fdt_destroy(proc->fd_table);
 	kfree(proc->p_name);
 	kfree(proc);
 }

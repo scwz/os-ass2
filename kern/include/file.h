@@ -29,6 +29,7 @@ int lseek(int fd, off_t pos, int whence, off_t *retval);
 int close(int fd);
 int dup2(int oldfd, int newfd);
 void open_std_fd(void);
-void oft_bootstrap(void);
+struct open_file **fdt_create(void);
+void fdt_destroy(struct open_file **fdt);
 
 #endif /* _FILE_H_ */
