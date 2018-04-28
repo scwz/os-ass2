@@ -96,4 +96,5 @@ added to the file descriptor table pointing to the same open file
 entry oldfd does. Any subsequent file syscalls done to this open file
 will affect both file descriptors. dup2() is kept atomic by acquiring
 the lock when the reference count is updated and the newfd is added
-to the file descriptor table.
+to the file descriptor table. Also note that dup2() does not create
+a new entry in the open file table.
