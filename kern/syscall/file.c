@@ -20,6 +20,13 @@
  * Add your file-related functions here ...
  */
 
+/*
+ * open()
+ *
+ * Open the file named by filename and give it a file descriptor. 
+ * Returns the file descriptor given.
+ */
+
 int 
 open(char *filename, int flags, mode_t mode, int *retval) 
 {
@@ -41,8 +48,14 @@ open(char *filename, int flags, mode_t mode, int *retval)
                 }
         }
 
+        /* empty block not found */
         if (fd == -1) {
                 return EMFILE;
+        }
+
+        result = vfs_open(filename, flags, mode, &of->vn);
+        if (result) {
+                return result;
         }
 
         of->offset = 0;
@@ -50,9 +63,8 @@ open(char *filename, int flags, mode_t mode, int *retval)
         of->ref_count = 1;
         of->of_lock = lock_create("of_lock");
 
-        result = vfs_open(filename, flags, mode, &of->vn);
-        if (result) {
-                return result;
+        if (of->of_lock == NULL) {
+                panic("open: failed to create lock");
         }
 
         curproc->fd_table[fd] = of;
@@ -60,6 +72,14 @@ open(char *filename, int flags, mode_t mode, int *retval)
 
         return 0;
 }
+
+/*
+ * read()
+ *
+ * Read buflen bytes from the file pointed to by the file descriptor
+ * into the buffer provided and updates the offset by how many bytes
+ * are read. Returns amount of bytes read.
+ */
 
 int
 read(int fd, void *buf, size_t buflen, ssize_t *retval) 
@@ -69,7 +89,8 @@ read(int fd, void *buf, size_t buflen, ssize_t *retval)
         struct uio myuio;
         struct open_file *curfile; 
 
-        if (fd < 0 || fd >= OPEN_MAX || (curfile = curproc->fd_table[fd]) == NULL) {
+        if (fd < 0 || fd >= OPEN_MAX || 
+                        (curfile = curproc->fd_table[fd]) == NULL) {
                 return EBADF;
         }
 
@@ -79,6 +100,7 @@ read(int fd, void *buf, size_t buflen, ssize_t *retval)
 
         lock_acquire(curfile->of_lock);
 
+        /* read file into buffer */
         uio_kinit(&iov, &myuio, buf, buflen, curfile->offset, UIO_READ);
         result = VOP_READ(curfile->vn, &myuio);
         if (result) {
@@ -94,6 +116,14 @@ read(int fd, void *buf, size_t buflen, ssize_t *retval)
         return 0;
 }
 
+/*
+ * write()
+ *
+ * Writes nbytes from the provided buffer into the file pointed to
+ * by the file descriptor and update the offset by how many bytes
+ * were written. Returns amount of bytes written.
+ */
+
 int
 write(int fd, const void *buf, size_t nbytes, ssize_t *retval) 
 {
@@ -102,7 +132,8 @@ write(int fd, const void *buf, size_t nbytes, ssize_t *retval)
         struct uio myuio;
         struct open_file *curfile; 
 
-        if (fd < 0 || fd >= OPEN_MAX || (curfile = curproc->fd_table[fd]) == NULL) {
+        if (fd < 0 || fd >= OPEN_MAX || 
+                        (curfile = curproc->fd_table[fd]) == NULL) {
                 return EBADF;
         }
 
@@ -112,6 +143,7 @@ write(int fd, const void *buf, size_t nbytes, ssize_t *retval)
 
         lock_acquire(curfile->of_lock);
 
+        /* write buffer into file */
         uio_kinit(&iov, &myuio, (void *)buf, nbytes, curfile->offset, UIO_WRITE);
         result = VOP_WRITE(curfile->vn, &myuio);
         if (result) {
@@ -127,6 +159,13 @@ write(int fd, const void *buf, size_t nbytes, ssize_t *retval)
         return 0;
 }
 
+/*
+ * lseek()
+ *
+ * Update seek offset depending on the value of whence. Returns the
+ * new seek offset.
+ */
+
 int
 lseek(int fd, off_t pos, int whence, off_t *retval) 
 {
@@ -134,7 +173,8 @@ lseek(int fd, off_t pos, int whence, off_t *retval)
         struct stat file_stats;
         struct open_file *curfile;
 
-        if (fd < 0 || fd >= OPEN_MAX || (curfile = curproc->fd_table[fd]) == NULL) {
+        if (fd < 0 || fd >= OPEN_MAX || 
+                        (curfile = curproc->fd_table[fd]) == NULL) {
                 return EBADF;
         }
 
@@ -160,6 +200,7 @@ lseek(int fd, off_t pos, int whence, off_t *retval)
                         return EINVAL;
         }
 
+        /* invalid pos */
         if (new_pos < 0) {
                 lock_release(curfile->of_lock);
                 return EINVAL;
@@ -173,12 +214,19 @@ lseek(int fd, off_t pos, int whence, off_t *retval)
         return 0;
 }
 
+/*
+ * close()
+ *
+ * Close the file pointed to by the file descriptor.
+ */
+
 int 
 close(int fd) 
 {
         struct open_file *curfile;
 
-        if (fd < 0 || fd >= OPEN_MAX || (curfile = curproc->fd_table[fd]) == NULL) {
+        if (fd < 0 || fd >= OPEN_MAX || 
+                        (curfile = curproc->fd_table[fd]) == NULL) {
                 return EBADF;
         }
 
@@ -188,6 +236,7 @@ close(int fd)
         curfile->ref_count--;
 
         if (curfile->ref_count == 0) {
+                /* free resources if no references left */
                 vfs_close(curfile->vn);
                 lock_release(curfile->of_lock);
                 lock_destroy(curfile->of_lock);
@@ -200,26 +249,33 @@ close(int fd)
         return 0;
 }
 
+/*
+ * dup2()
+ *
+ * Clone a file descriptor onto another file descriptor. Returns the
+ * file descriptor which was cloned onto.
+ */
+
 int 
 dup2(int oldfd, int newfd) 
 {
         struct open_file *curfile;
 
-        if (oldfd < 0 || oldfd >= OPEN_MAX || newfd < 0 || newfd >= OPEN_MAX) {
+        if (oldfd < 0 || oldfd >= OPEN_MAX || 
+                        newfd < 0 || newfd >= OPEN_MAX) {
                 return EBADF;
         }
 
-        // no effect
+        if ((curfile = curproc->fd_table[oldfd]) == NULL) {
+                return EBADF;
+        }
+
+        /* no effect */
         if (oldfd == newfd) {
                 return 0;
         }
 
-        curfile = curproc->fd_table[oldfd];
-
-        if (curfile == NULL) {
-                return EBADF;
-        }
-
+        /* close newfd if it contains a file */
         if (curproc->fd_table[newfd] != NULL) {
                 close(newfd);
         }
@@ -234,19 +290,30 @@ dup2(int oldfd, int newfd)
         return 0;
 }
  
+/*
+ * open_std_fd()
+ * 
+ * Open the standard file descriptors and attach them to 
+ * file descriptors 0, 1, and 2.
+ */
+
 void
 open_std_fd(void) 
 {
         int dummy;
         char c0[] = "con:", c1[] = "con:", c2[] = "con:";
 
-        // open stdin, stdout, and stderr first so that they
-        // get fds 0, 1, 2 respectively
         open(c0, O_RDONLY, 0, &dummy);
         open(c1, O_WRONLY, 0, &dummy);
         open(c2, O_WRONLY, 0, &dummy);
 }
 
+/*
+ * fdt_create()
+ *
+ * Initialise the file descriptor table and set all its entries
+ * to null.
+ */
 
 struct open_file **
 fdt_create(void) 
@@ -254,7 +321,6 @@ fdt_create(void)
         struct open_file **fdt;
 
         fdt = kmalloc(sizeof(struct open_file *) * OPEN_MAX);
-
         if (fdt == NULL) {
                 return NULL;
         }
@@ -266,6 +332,13 @@ fdt_create(void)
         return fdt;
 }
 
+/*
+ * fdt_destroy()
+ *
+ * Close any currently open files in the process and then free
+ * the file descriptor table.
+ */
+
 void 
 fdt_destroy(struct open_file **fdt) 
 {
@@ -274,4 +347,5 @@ fdt_destroy(struct open_file **fdt)
         }
 
         kfree(fdt);
+        fdt = NULL;
 }

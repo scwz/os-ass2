@@ -17,7 +17,11 @@
 #include <copyinout.h>
 
 /*
- * Add your file-related functions here ...
+ * Syscall wrappers
+ *
+ * Each wrapper will copy data from userspace to kernel space 
+ * when appropriate and then call the specified file management 
+ * function.
  */
 
 int 
@@ -27,12 +31,12 @@ sys_open(userptr_t user_filename, int flags, mode_t mode, int *retval)
         char *filename;
         size_t got;
 
-        filename = kmalloc(sizeof(char) * PATH_MAX);
+        filename = kmalloc(sizeof(char) * (PATH_MAX + 1));
         if (filename == NULL) {
                 return ENOMEM;
         }
 
-        result = copyinstr(user_filename, filename, PATH_MAX, &got);
+        result = copyinstr(user_filename, filename, PATH_MAX + 1, &got);
         if (result) {
                 return result;
         }
