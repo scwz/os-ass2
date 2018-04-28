@@ -1,20 +1,16 @@
 #include <types.h>
 #include <kern/errno.h>
 #include <kern/fcntl.h>
-#include <kern/limits.h>
 #include <kern/stat.h>
 #include <kern/seek.h>
 #include <lib.h>
 #include <uio.h>
-#include <thread.h>
 #include <current.h>
 #include <synch.h>
 #include <vfs.h>
 #include <vnode.h>
 #include <file.h>
 #include <proc.h>
-#include <syscall.h>
-#include <copyinout.h>
 
 /*
  * Add your file-related functions here ...
@@ -53,6 +49,7 @@ open(char *filename, int flags, mode_t mode, int *retval)
                 return EMFILE;
         }
 
+        /* open and initialise file */
         result = vfs_open(filename, flags, mode, &of->vn);
         if (result) {
                 return result;
@@ -67,6 +64,7 @@ open(char *filename, int flags, mode_t mode, int *retval)
                 panic("open: failed to create lock");
         }
 
+        /* add entry to file descriptor table */
         curproc->fd_table[fd] = of;
         *retval = fd;
 
@@ -94,6 +92,7 @@ read(int fd, void *buf, size_t buflen, ssize_t *retval)
                 return EBADF;
         }
 
+        /* check that file is not write only */
         if ((curfile->flags & O_ACCMODE) == O_WRONLY) {
                 return EBADF;
         }
@@ -108,6 +107,7 @@ read(int fd, void *buf, size_t buflen, ssize_t *retval)
                 return result;
         }
 
+        /* update offset */
         *retval = myuio.uio_offset - curfile->offset;
         curfile->offset = myuio.uio_offset;
 
@@ -137,6 +137,7 @@ write(int fd, const void *buf, size_t nbytes, ssize_t *retval)
                 return EBADF;
         }
 
+        /* check that file is not read only */
         if ((curfile->flags & O_ACCMODE) == O_RDONLY) {
                 return EBADF;
         }
@@ -151,6 +152,7 @@ write(int fd, const void *buf, size_t nbytes, ssize_t *retval)
                 return result;
         }
 
+        /* update offset */
         *retval = myuio.uio_offset - curfile->offset;
         curfile->offset = myuio.uio_offset;
 
@@ -178,12 +180,14 @@ lseek(int fd, off_t pos, int whence, off_t *retval)
                 return EBADF;
         }
 
+        /* check if you can actually change the seek offset */
         if (!VOP_ISSEEKABLE(curfile->vn)) {
                 return ESPIPE;
         }
 
         lock_acquire(curfile->of_lock);
 
+        /* get new pos */
         switch (whence) {
                 case SEEK_SET:
                         new_pos = pos;
@@ -206,6 +210,7 @@ lseek(int fd, off_t pos, int whence, off_t *retval)
                 return EINVAL;
         }
 
+        /* update offset */
         curfile->offset = new_pos;
         *retval = curfile->offset;
 
@@ -232,6 +237,7 @@ close(int fd)
 
         lock_acquire(curfile->of_lock);
 
+        /* remove entry from file descriptor table */
         curproc->fd_table[fd] = NULL;
         curfile->ref_count--;
 
@@ -282,6 +288,7 @@ dup2(int oldfd, int newfd)
 
         lock_acquire(curfile->of_lock);
 
+        /* clone file descriptors */
         curfile->ref_count++;
         curproc->fd_table[newfd] = curfile;
 

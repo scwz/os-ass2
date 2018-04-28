@@ -46,7 +46,6 @@
 #include <mainbus.h>
 #include <vfs.h>
 #include <device.h>
-#include <file.h>
 #include <syscall.h>
 #include <test.h>
 #include <version.h>
