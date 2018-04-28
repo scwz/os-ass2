@@ -2,6 +2,14 @@ For this assignment, we had to implement a per-process file
 descriptor table with a global open file table to manage currently 
 open files. 
 
+The underlying filesystem does most of the work for us through vfs
+and VOP calls and so we only need to manage the open file table,
+file descriptor tables, and the currently open files. The filesystem
+also ensures that I/O operations are atomic (I/O operations will not
+modify the same file at the same time) and so we only need to worry 
+about protecting the offsets of the open files, the file descriptor 
+table, and the open file table in our implementation.
+
 We represent an open file with a struct which contains a pointer to 
 a vnode, a mutex, the current seek offset of the file, the file 
 status flags, and the reference count of the file. The vnode
@@ -12,7 +20,80 @@ count indicates how many file descriptors directly reference a file.
 The per-process file descriptor table is implemented as an array of 
 pointers to an open file of size OPEN_MAX and is created each time a
 new process is spawned. We use the heap as our open file table. Since
-there is no reason to index into the open file table, and it is 
+there is no reason to index into the open file table and since it is 
 assumed there will be enough memory to pass the auto-testing, we 
 decided leaving the open file entries on the heap would be easier 
-to do and leave our code less complicated.
+to do and leave our code less complicated. Also, since there will 
+always be at least one process that points to an open file entry, 
+(if any exist) the open files will be cleaned up when the processes 
+are destroyed.
+
+Each syscall is implemented as a wrapper around the actual function
+which manages the files. They each copy data from userspace to 
+kernel space when appropriate and then call the function that 
+performs the file management. This approach was chosen to make the 
+code look cleaner and to allow other kernel functions to call the 
+file management functions, if needed, without having to worry about
+userspace data.
+
+open() allocates a new open file entry onto the heap and returns 
+ENFILE if the heap is full. It does a linear search to find the 
+lowest available file descriptor in the process and returns EMFILE 
+if it cannot find one. It then calls vfs_open() to open the file 
+and initialises all the attributes of the open file entry and adds
+the entry to the file descriptor table. The file descriptor found is
+returned on success. open() is kept() atomic due to the fact that 
+the heap serves as the open file table and so there is no shared 
+buffer to lock. Each entry to the open file table is also distinct 
+so two entries pointing to the same vnode will not affect each 
+others seek offset.
+
+read() initialises a new uio that is suitable for reading a file 
+into the supplied buffer. It then performs the read using VOP_READ 
+and updates the files seek pointer by the amount of bytes read. The
+function also returns the amount of bytes read on sucess. It is 
+kept atomic by the mutex that was initialised in open() and 
+protects the offset from potential race conditions.
+
+write() works similarly to read() except it initialises a new uio 
+that is suitable for writing to a file from the supplied buffer. It 
+performs the write using VOP_WRITE and updates the files seek offset
+by the amount of bytes written. The function also returns the amount
+of bytes written on success. It is kept atomic in exactly the same 
+way read() is.
+
+Since lseek() required 64-bit values for its arguments, the "pos"
+argument was stored in registers a2 and a3 and were joined together 
+by the syscall handler to a uint64_t variable. The whence value 
+was also needed to be taken off the user stack and transferred to
+kernel space. As the return value of lseek() is also 64-bit, the
+return value was needed to be split into registers v0 and v1.
+
+Depending on the value of whence, the seek offset will be changed.
+If the value is SEEK_SET, the new offset will be the pos supplied.
+If it is SEEK_CUR, the new offset will be the current offset 
+advanced by the pos supplied. If it is SEEK_END, VOP_STAT is used to
+find the size of the file and the offset is updated to be the file
+size advanced by the pos supplied. If the new position is negative, 
+EINVAL is returned. The new position of the seek offset is returned
+on success. lseek() is kept atomic by acquiring the lock when the 
+function is looking at the value of the current offset and when it 
+is updated.
+
+close() decrements the reference count of the open file by one and 
+removes the file descriptor associated with it from the current 
+processes file descriptor table. If the reference count is zero, 
+the resources are freed and it is "removed" from the open file table.
+close() is kept atomic by acquiring the lock when the entry is being
+removed from the file descriptor table and its reference count being
+decremented.
+
+dup2() first checks if the file descriptors are the same, if they 
+are it returns a success and does nothing. It then checks if newfd
+already points to a file. The file is closed if it does. After these
+checks, the reference count is incremented by one and the newfd is 
+added to the file descriptor table pointing to the same open file 
+entry oldfd does. Any subsequent file syscalls done to this open file
+will affect both file descriptors. dup2() is kept atomic by acquiring
+the lock when the reference count is updated and the newfd is added
+to the file descriptor table.
