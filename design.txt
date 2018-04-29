@@ -29,8 +29,8 @@ always be at least one process that points to an open file entry,
 are destroyed.
 
 Each syscall is implemented as a wrapper around the actual function
-which manages the files. They each copy data from userspace to 
-kernel space when appropriate and then call the function that 
+which manages the files. They each copy data to and from userspace 
+and kernel space when appropriate and then call the function that 
 performs the file management. This approach was chosen to make the 
 code look cleaner and to allow other kernel functions to call the 
 file management functions, if needed, without having to worry about

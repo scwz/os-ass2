@@ -8,7 +8,7 @@
 /*
  * Syscall wrappers
  *
- * Each wrapper will copy data from userspace to kernel space 
+ * Each wrapper will copy data to and from userspace and kernel space 
  * when appropriate and then call the specified file management 
  * function.
  */
