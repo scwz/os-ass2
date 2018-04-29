@@ -498,6 +498,8 @@ main(int argc, char * argv[])
 		}
 		test_valid_close(fd2);
 
+		
+
 
 		printf("**********\n* TEST DUP2\n");
 		fd = -1;
@@ -614,6 +616,15 @@ main(int argc, char * argv[])
 
 		test_valid_close(fd);
 
+		printf("**********\n* Test close a std fd and reuse the fd\n");
+		test_valid_close(0);
+		fd = test_valid_open("stdclose.file", O_RDWR | O_CREAT);
+		if (fd != 0) {
+			printf("ERROR: didn't reuse closed std fd\n");
+			exit(1);
+		}
+		
+		test_valid_close(fd);
 
       printf("*********\n* SUCCESS: TESTS COMPLETE\n");
       return 0;
