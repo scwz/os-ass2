@@ -533,7 +533,7 @@ main(int argc, char * argv[])
 		test_valid_read(fd, &buf[0], 1);	
 
 		r = write(fd, newtest, strlen(newtest));
-		if (r != 0) {
+		if (r != -1) {
 			printf("ERROR: writing on rdonly oldfd allowed\n");
 			exit(1);
 		}
@@ -562,7 +562,7 @@ main(int argc, char * argv[])
 		}
 
 		r = write(fd3, newtest, strlen(newtest));
-		if (r != 0) {
+		if (r != -1) {
 			printf("ERROR: dup2 cloned fd permissions not the same\n");
 			exit(1);
 		}
