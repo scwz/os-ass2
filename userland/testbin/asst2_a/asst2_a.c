@@ -535,7 +535,7 @@ main(int argc, char * argv[])
 		fd = -1;
 		
 		printf("**********\n* dup2: close newfd if opened\n");
-		fd = test_valid_open("dup2.file", O_RDWR | O_CREAT);
+		fd = test_valid_open("tester.file", O_RDWR);
 		fd2 = test_valid_open("dup2_2.file", O_RDWR | O_CREAT);
 
 		int old_newfd = fd2;
@@ -548,8 +548,20 @@ main(int argc, char * argv[])
 			printf("ERROR: dup2 newfd is a different fd: %c\n", fd3);
 			exit(1);
 		}
+
+		test_valid_read(fd3, &buf[0], 1);
+		test_valid_read(fd, &buf[1], 1);	
+		if (buf[0] != 'A' || buf[1] != 'B') {
+			printf("ERROR: dup2 newfd wasn't closed: %c\n", fd3);
+			exit(1);
+		}
+		
 		test_valid_close(fd);
 		test_valid_close(fd2);
+
+		fd = -1;
+		fd2 = -1;
+		fd3 = -1;	
 
 
 		printf("**********\n* dup2: old and newfd are same\n");
