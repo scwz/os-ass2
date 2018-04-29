@@ -413,25 +413,16 @@ main(int argc, char * argv[])
           exit(1);
       }
 
-/*
-		TODO: Investigate issue - is it a buffering issue?
 
 		printf("**********\n* test: open 2 fd's, close one, do work and reopen another, then close both\n");
 		printf("*WARNING: IO BUFFERING may falsify this test\n");
 
 		printf("* create dummy file\n");
 		fd = test_valid_open("close2open.file", O_RDWR | O_CREAT);
-		//test_valid_write(fd, tester, strlen(tester));
-		r = write(fd, tester, strlen(tester));
-		if (r < 0) {
-			printf("ERROR: didn't write\n");
-			exit(1);
-		}
-		// N.B. Closing the file and reopening forces the write for some reason
-		//test_valid_close(fd);
-		//fd = test_valid_open("close2open.file", O_RDWR | O_CREAT);
-		r = test_valid_read(fd, &buf[0], strlen(tester));
+		test_valid_write(fd, tester, strlen(tester));
+		r = lseek(fd, SEEK_SET, 0);
 
+		r = test_valid_read(fd, &buf[0], strlen(tester));
 		if (buf[0] != 'A' || buf[1] != 'B' || buf[2] != 'C') {
 			 printf("ERROR writing dummy file: %c%c%c\n", buf[0], buf[1], buf[2]);
 			 exit(1);
@@ -454,7 +445,6 @@ main(int argc, char * argv[])
 		printf("* close both\n");
 		test_valid_close(fd);
 		test_valid_close(fd2);
-*/
 
 		printf("**********\n* Test: Functions on fd's within valid range but unopened\n");
 		fd = 10;
