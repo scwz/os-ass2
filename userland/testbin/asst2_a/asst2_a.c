@@ -28,7 +28,6 @@ main(int argc, char * argv[])
 {
         int fd, fd2, fd3;
 		  int r;
-		  //int r i, j , k;
         (void) argc;
         (void) argv;
 
@@ -261,9 +260,6 @@ main(int argc, char * argv[])
       close(fd2);
 
 
-		// TODO : Fix implementation
-		// READ - WRITE ONLY TESTS: BROKEN
-
 		printf("**********\n* testing read on write only\n");
 		fd = test_valid_open("tester.file", O_WRONLY);
 
@@ -460,8 +456,58 @@ main(int argc, char * argv[])
 		test_valid_close(fd2);
 */
 
-//TODO: All funcs - test fd within valid range but unopened
-//TODO: Open two copies of file - close one and see if you can still read from second
+		printf("**********\n* Test: Functions on fd's within valid range but unopened\n");
+		fd = 10;
+		printf("* test read\n");
+		r = read(fd, &buf[0], 1);
+		if (r != -1) {
+			printf("Error reading invalid fd within range\n");
+			exit(1);
+		}
+		printf("* test write\n");
+		r = write(fd, newtest, strlen(newtest));
+		if (r != -1) {
+			printf("Error writing invalid fd within range\n");
+			exit(1);
+		}
+		printf("* test lseek\n");
+		r = lseek(fd, SEEK_SET, 0);
+		if (r != -1) {
+			printf("Error lseeking invalid fd within range\n");
+			exit(1);
+		}
+		printf("* test close\n");
+		r = close(fd);
+		if (r != -1) {
+			printf("Error closing invalid fd within range\n");
+			exit(1);
+		}
+		fd2 = test_valid_open("valid.file", O_RDWR | O_CREAT);
+		printf("* test dup2\n");
+		r = dup2(fd, fd2);
+		if (r != -1) {
+			printf("Error dup2 invalid fd within range\n");
+			exit(1);
+		}
+
+		test_valid_close(fd2);
+		fd = -1;
+		fd2 = -1;
+		
+
+		printf("**********\n* Test: Open two copies and close one - see if second is ok\n");
+		fd = test_valid_open("tester.file", O_RDWR);
+		fd2 = test_valid_open("tester.file", O_RDWR);
+
+		test_valid_close(fd);
+
+		r = test_valid_read(fd2, &buf[0], 1);
+		if (buf[0] != 'A') {
+			printf("Error on closing 2nd copy of fd: %c\n", buf[0]);
+			exit(1);
+		}
+		test_valid_close(fd2);
+
 
 		printf("**********\n* TEST DUP2\n");
 		fd = -1;
@@ -518,8 +564,8 @@ main(int argc, char * argv[])
 		fd = test_valid_open("dup2.file", O_RDWR | O_CREAT);
 
 		fd3 = dup2(fd, fd);
-		if (fd3 != 0) {
-			printf("ERROR: dup2 should return 0 if fd is the same: %d\n", fd3);
+		if (fd3 == -1) {
+			printf("ERROR: dup2 failed on same: %d\n", fd3);
 			exit(1);
 		}
 		test_valid_close(fd);
