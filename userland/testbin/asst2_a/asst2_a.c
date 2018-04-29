@@ -32,6 +32,13 @@ main(int argc, char * argv[])
         (void) argc;
         (void) argv;
 
+		  printf("* Create tester.file if it doesn't exist\n");
+		  fd = open("tester.file", O_RDWR | O_CREAT | O_EXCL);
+		  if (fd > 0) {
+		     test_valid_write(fd, tester, strlen(tester));
+		  }
+		  test_valid_close(fd);
+
         printf("\n**********\n* Test Open\n");
 
         printf("**********\n* open file normally \"tester.file\"\n");
@@ -253,7 +260,7 @@ main(int argc, char * argv[])
       close(fd);
       close(fd2);
 
-/*
+
 		// TODO : Fix implementation
 		// READ - WRITE ONLY TESTS: BROKEN
 
@@ -285,7 +292,8 @@ main(int argc, char * argv[])
 		}
 		
 		test_valid_close(fd);
-*/
+
+
 
 		printf("**********\n* testing lseek whence types\n");
 
@@ -384,6 +392,10 @@ main(int argc, char * argv[])
           printf("ERROR lseek fd's multiple: %s\n", strerror(errno));
       }
 
+		test_valid_close(fd);
+		test_valid_close(fd2);
+
+
 		printf("**********\n* Test CLOSE\n");
       printf("* open file normally \"tester.file\"\n");
 	   fd = open("tester.file", O_RDWR);
@@ -448,22 +460,125 @@ main(int argc, char * argv[])
 		test_valid_close(fd2);
 */
 
-		printf("**********\n* TEST DUP2\n");
+//TODO: All funcs - test fd within valid range but unopened
+//TODO: Open two copies of file - close one and see if you can still read from second
 
-		printf("**********\n* dup2: try and duplicate uninit fd's\n");
+		printf("**********\n* TEST DUP2\n");
+		fd = -1;
+		fd2 = -1;
+
+		printf("**********\n* dup2: empty old fd, empty new fd\n");
 
 		fd3 = dup2(fd, fd2);
 		if (fd3 != -1) {
 			printf("ERROR: dup2 worked on empty oldfd, empty newfd: %d\n", fd3);
 			exit(1);
 		}
-//TODO: see sheet
-//TODO: invalid oldfd, valid newfd
-//      valid oldfd, invalid newfd
 
+		printf("**********\n* dup2: empty oldfd, init newfd\n");
+		fd2 = test_valid_open("dup2.file", O_RDWR | O_CREAT);
+		fd3 = dup2(fd, fd2);
+		if (fd3 != -1) {
+			printf("ERROR: dup2 worked on empty oldfd, init newfd: %d, %d\n", fd, fd2);
+			exit(1);
 
-//TODO: Should dup2 work if the newfd argument is invalid (ie. -1)? No must provide a valid file handle to clone onto. If open, close it.
+		}
+		test_valid_close(fd2);
+		fd2 = -1;
+
+		printf("**********\n* dup2: init oldfd, empty newfd\n");
+		fd = test_valid_open("dup2.file", O_RDWR | O_CREAT);
+		fd3 = dup2(fd, fd2);
+		if (fd3 != -1) {
+			printf("ERROR: dup2 worked on init oldfd, empty newfd: %d\n", fd3);
+			exit(1);
+		}
+		test_valid_close(fd);
+		fd = -1;
 		
+		printf("**********\n* dup2: close newfd if opened\n");
+		fd = test_valid_open("dup2.file", O_RDWR | O_CREAT);
+		fd2 = test_valid_open("dup2_2.file", O_RDWR | O_CREAT);
+
+		int old_newfd = fd2;
+		
+		fd3 = dup2(fd, fd2);
+		if (fd3 < 0) {
+			printf("ERROR: dup2 failed: %d\n", fd3);
+			exit(1);
+		} else if (fd3 != old_newfd) {
+			printf("ERROR: dup2 newfd is a different fd: %c\n", fd3);
+			exit(1);
+		}
+		test_valid_close(fd);
+		test_valid_close(fd2);
+
+
+		printf("**********\n* dup2: old and newfd are same\n");
+		fd = test_valid_open("dup2.file", O_RDWR | O_CREAT);
+
+		fd3 = dup2(fd, fd);
+		if (fd3 != 0) {
+			printf("ERROR: dup2 should return 0 if fd is the same: %d\n", fd3);
+			exit(1);
+		}
+		test_valid_close(fd);
+
+
+		printf("**********\n* dup2: check newfd attributes are same as oldfd\n");
+		fd = test_valid_open("tester.file", O_RDONLY);
+		fd2 = 4;
+
+		printf("* advance fd's seek pointer by 1\n");
+		test_valid_read(fd, &buf[0], 1);	
+
+		r = write(fd, newtest, strlen(newtest));
+		if (r != 0) {
+			printf("ERROR: writing on rdonly oldfd allowed\n");
+			exit(1);
+		}
+		
+		fd3 = test_valid_dup2(fd, fd2);
+
+		printf("* test to see if a new open skips newfd's assigned fd number\n");
+		int testfd = test_valid_open("tester.file", O_RDONLY);
+		if (testfd != 5) {
+			printf("ERROR: dup2 doesn't reserve int newfd from the open function\n");
+			exit(1);
+		}
+		test_valid_close(testfd);
+		
+		printf("* test to see if fd and cloned fd have same seek pointer AND reference same object\n");
+		test_valid_read(fd3, &buf[0], 1);
+		test_valid_read(fd, &buf[1], 1);
+
+		if (buf[0] != 'B') {
+			printf("ERROR: dup2 cloned fd doesn't have same seek pointer\n");
+			exit(1);
+		}
+		if (buf[1] != 'C') {
+			printf("ERROR: dup2 cloned fd doesn't reference same object\n");
+			exit(1);
+		}
+
+		r = write(fd3, newtest, strlen(newtest));
+		if (r != 0) {
+			printf("ERROR: dup2 cloned fd permissions not the same\n");
+			exit(1);
+		}
+
+		printf("* test to see if closing cloned fd affects oldfd\n");
+		test_valid_close(fd3);
+
+		r = lseek(fd, 0, SEEK_SET);
+		if (r != 0) {
+			printf("ERROR: dup2 closing cloned fd closes oldfd?\n");
+			exit(1);
+		}
+
+		test_valid_close(fd);
+
+
       printf("*********\n* SUCCESS: TESTS COMPLETE\n");
       return 0;
 }
